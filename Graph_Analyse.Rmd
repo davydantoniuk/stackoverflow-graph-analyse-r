@@ -1,0 +1,350 @@
+---
+title: "Graph analysis using the library(igraph)"
+author: "Antoniuk"
+date: "2024-06-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(igraph)
+library(dplyr)
+edges <- read.csv("stack_network_links.csv")
+nodes <- read.csv("stack_network_nodes.csv")
+edges 
+
+edges <- edges %>% distinct(value, .keep_all = TRUE)
+```
+
+```{r}
+library(readr)
+library(igraph)
+library(ggraph)
+
+stack_network <- graph_from_data_frame(read_csv("stack_network_links.csv"),
+                                       vertices = read_csv("stack_network_nodes.csv"))
+
+set.seed(2017)
+ggraph(stack_network, layout = "fr") +
+  geom_edge_link(alpha = 0.2, aes(width = value)) +
+  geom_node_point(aes(color = as.factor(group), size = 10 * nodesize)) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_graph() +
+  theme(legend.position="none")
+```
+
+```{r}
+graf <- graph.data.frame(edges, directed = FALSE, vertices = nodes)
+V(graf)$label <- nodes$name
+```
+
+**Zad 2**
+```{r}
+# Sprawdź, czy graf jest spójny
+is_connected(graf)
+```
+
+```{r}
+#Składowe spójne w grafie
+components <- clusters(graf)
+cat("Rozmiary komponentów:", components$csize, "\n")
+cat("Liczba komponentów:", components$no, "\n")
+```
+
+```{r}
+# Liczba wierzchołków
+length(V(graf))
+```
+
+```{r}
+# Liczba krawędzi
+length(E(graf))
+```
+
+```{r}
+# Średni stopień wierzchołka
+mean(degree(graf))
+```
+
+```{r}
+# Średnia droga charakterystyczna (długość najkrótszej ścieżki między dwoma wierzchołkami)
+average.path.length(stack_network)
+```
+
+```{r}
+# Gęstość grafu
+graph.density(graf)
+```
+
+```{r}
+# Średnica grafu skierowanego
+diameter(graf, directed = TRUE, weights = NA)
+```
+
+```{r}
+# Histogram stopni wierzchołków
+hist(degree(graf), main = "Rozkład stopni wierzchołków", xlab = "Stopień wierzchołka", ylab = "Liczba wierzchołków",col = "skyblue")
+```
+
+```{r}
+# Wizualizacja z kolorowaniem wierzchołków według stopni
+plot(graf, layout = layout.fruchterman.reingold, vertex.label.cex = 0.4, edge.arrow.size = 0.7, vertex.color = degree(graf))
+```
+
+**Zad 3**
+```{r}
+# Stopnie wierzcholków
+dg_all <-  degree(graf)
+order_indices <- order(-dg_all)  
+sorted_dg <- dg_all[order_indices]
+cat("10 wierzchołków o najwyższym stopniu: \n")
+head(sorted_dg,5)
+print(sorted_dg[6:10])
+cat("10 wierzchołków o najniższym stopniu: \n")
+tail(sorted_dg, 10)[1:5]
+tail(sorted_dg,5)
+
+high_degree_vertices <- head(order_indices, 10)
+low_degree_vertices <- tail(order_indices, 10)
+vertex_labels <- V(graf)$name
+vertex_colors <- ifelse(V(graf)$name %in% vertex_labels[high_degree_vertices], "red", 
+                        ifelse(V(graf)$name %in% vertex_labels[low_degree_vertices], "blue", "gray"))
+png("plot11.png", width = 800, height = 600)
+plot(graf, layout = layout_with_fr, vertex.label = vertex_labels, vertex.label.cex = 0.3, 
+     vertex.color = vertex_colors)
+legend("topright", legend = c("Wysoki stopień", "Niski stopień", "Inne"),
+       col = c("red", "blue", "gray"), pch = 18)
+dev.off()
+```
+
+```{r}
+#Obszar z największym stopniem
+V(graf)$label[which(dg_all == max(dg_all))]
+#Obszary z najmniejszym stopniem
+V(graf)$label[which(dg_all == min(dg_all))]
+```
+
+```{r}
+#Posortowane obszary za stopniem
+head(V(graf)$label[order(dg_all, decreasing = T)],10)
+```
+
+```{r}
+# Wykres słupkowy rozkładu stopni wierzchołków
+barplot(degree.distribution(graf), 
+        col = "skyblue",            
+        main = "Rozkład stopni wierzchołków", 
+        xlab = "Stopień wierzchołka",  
+        ylab = "Liczba wierzchołków",  
+        border = "black",           
+        names.arg = 0:(length(degree.distribution(graf))-1),  
+        las = 1)
+```
+
+```{r}
+#Pośrednictwo
+bw <- betweenness(graf)
+#Plot
+plot(bw, type = "p", main = "Pośrednictwo",xlab = "Index", ylab = "Betweenness")
+dev.copy(png, filename = "plot.png")
+dev.off()
+#Wierzchołek z największym pośrednictwom
+V(graf)$label[which(bw==max(bw))]
+
+#Wierzchołki z najmniejszym pośrednictwom
+V(graf)$label[which(bw==min(bw))]
+```
+
+```{r}
+#Bliskość
+cl <- closeness(graf)
+#Plot
+plot(cl, type = "p", main = "Bliskość", xlab = "Index", ylab = "Closeness")
+dev.copy(png, filename = "plot1.png")
+dev.off()
+#Wierzchołki z największą bliskościu
+V(graf)$label[which(cl==max(cl))]
+
+#Wierzchołek z najmniejszą bliskościu
+V(graf)$label[which(cl==min(cl))]
+```
+
+```{r}
+#Centralność wektora własnego
+ec <- eigen_centrality(graf)
+ec$vector
+#Plot
+plot(ec$vector, main = "Centralność wektora własnego", xlab = "Index", ylab = "Eigen Centrality")
+#Wierzchołek z największą centralnościu
+V(graf)$label[which(ec$vector==max(ec$vector))]
+
+#Wierzchołki z najmniejszą centralnościu
+V(graf)$label[which(ec$vector==min(ec$vector))]
+```
+
+```{r}
+#Ranga Strony
+pg <- page_rank(graf)
+#Plot
+plot(pg$vector, main = "Ranga Strony", xlab = "Index", ylab = "Page Rank")
+#Obszar z najwiekszym rangiem strony
+V(graf)$label[which(pg$vector==max(pg$vector))]
+
+#Obszar z najmniejszym rangiem strony
+V(graf)$label[which(pg$vector==min(pg$vector))]
+
+#Ranga Strony po spadanius
+page_rank(graf)$vector %>% 
+  order(.,decreasing=T) %>% 
+  V(graf)$label[.]
+```
+
+```{r}
+#Ekcentryczność
+ecc <- eccentricity(graf)
+
+#Plot
+plot(ecc, main = "Ekcentryczność", xlab = "Index", ylab = "Eccentricity")
+
+#Obszary z najwiekszą ekcentrycznościu
+V(graf)$label[which(ecc==max(ecc))]
+max_eccentricity_indices <- which(ecc == max(ecc))
+max_eccentricity_df <- data.frame( Eccentricity = ecc[max_eccentricity_indices])
+View(max_eccentricity_df)
+
+min_eccentricity_indices <- which(ecc == min(ecc))
+min_eccentricity_df <- data.frame( Eccentricity = ecc[min_eccentricity_indices])
+View(min_eccentricity_df)
+# Print the data frame
+print(max_eccentricity_df)
+#Obszary z najmniejszszą ekcentrycznościu
+V(graf)$label[which(ecc==min(ecc))]
+
+min_eccentricity_indices <- which(ecc == min(ecc))
+
+for (i in seq(1, length(min_eccentricity_indices), by = 2)) {
+  labels_chunk <- V(graf)$label[min_eccentricity_indices[i:(i + 1)]]
+  labels_chunk <- labels_chunk[!is.na(labels_chunk)]  # Exclude NA values
+  print(labels_chunk)
+}
+
+# Additional item
+last_label <- V(graf)$label[min_eccentricity_indices[length(min_eccentricity_indices)]]
+if (!is.na(last_label)) {
+  print(last_label)
+}
+
+```
+
+**Zad 4**
+```{r}
+#Klastrowanie
+
+#Uproszczenie grafu(usunięcie wielu krawędzi)
+graf_simplify <- simplify(graf)
+
+cluster_and_time <- function(graf_simplify, algorithm) {
+  start.time <- Sys.time()
+  
+  if (algorithm == "Wielopoziomowy") {
+    result <- cluster_louvain(graf_simplify) #algorytm wielopoziomowy 
+  } else if (algorithm == "Szybki zachłanny") {
+    result <- cluster_fast_greedy(graf_simplify) #algorytm szybki zachłanny 
+  } else if (algorithm == "Wiodącego wektora własnego") {
+    result <- cluster_leading_eigen(graf_simplify) # algorytm wiodącego wektora własnego 
+  } else if (algorithm == "Posrednictwa krawędzi") {
+    result <- cluster_edge_betweenness(graf_simplify) # algorytm pośrednictwa krawędzi 
+  } else if (algorithm == "Infomap") {
+    result <- cluster_infomap(graf_simplify) # algorytm Infomap
+  } else if (algorithm == "Label Propagating") {
+    result <- cluster_label_prop(graf_simplify) #algorytm Label propagating
+  } else if (algorithm == "Walktrap") {
+    result <- cluster_walktrap(graf_simplify) # algorytm Walktrap 
+  } else {
+    stop("Unknown algorithm")
+  }
+  
+  end.time <- Sys.time()
+  time <- difftime(end.time, start.time, units = "secs")
+  
+  list(result = result, time = time)
+}
+
+algorithms <- c(
+  "Wielopoziomowy",
+  "Szybki zachłanny",
+  "Wiodącego wektora własnego",
+  "Posrednictwa krawędzi",
+  "Infomap",
+  "Label Propagating",
+  "Walktrap"
+)
+
+results <- lapply(algorithms, cluster_and_time, graf_simplify = graf_simplify)
+
+klaster_matrix <- data.frame(
+  Algorithm = algorithms,
+  NumberOfCommunities = sapply(results, function(x) length(x$result)),
+  CommunitySizes = sapply(results, function(x) toString(sizes(x$result))),
+  Modularity = sapply(results, function(x) modularity(x$result)),
+  ComputationTime = sapply(results, function(x) x$time)
+)
+klaster_matrix$CommunitySizes <- sapply(lapply(lapply(strsplit(klaster_matrix$CommunitySizes, ", "), as.numeric), sort, decreasing = F), toString)
+colnames(klaster_matrix) <- c("Algotytm", "Liczba Społeczności", "Rozmiary Społeczności", "Modułowość", "Czas Obliczeń[s]")
+View(klaster_matrix)
+# library(writexl)
+# write_xlsx(klaster_matrix,"klaster_matrix.xlsx")
+```
+
+```{r}
+modularity_class <- multilevel.community(graf)
+membership <- membership(modularity_class)
+plot(graf, 
+     layout = layout_with_fr,
+     vertex.color = membership, 
+     vertex.label.cex = 0.35, 
+     main = " Louvain Algorithm Visualization"
+)
+```
+
+```{r}
+edge_betweenness_values <- edge.betweenness(graf)
+selected_edges <- which(edge_betweenness_values == max(edge_betweenness_values))
+edge_colors <- ifelse(1:length(E(graf)) %in% selected_edges, "red", "gray")
+plot(
+  graf,
+  layout = layout_with_fr(graf),
+  vertex.color = nodes$group,
+  vertex.size = nodes$size,
+  vertex.label.cex = 0.35,
+  edge.color = edge_colors,
+  edge.width = edge_betweenness_values
+)
+```
+
+```{r}
+infomap_communities <- cluster_infomap(graf)
+V(graf)$community <- membership(infomap_communities)
+plot(graf, vertex.color = V(graf)$community, vertex.label = V(graf)$name,vertex.label.cex = 0.35, main = "INFOMAP Algorithm Visualization")
+```
+
+```{r}
+walktrap_result <- walktrap.community(graf)
+
+# Visualize the communities
+plot(graf, vertex.color = walktrap_result$membership, 
+     main = "Walktrap Algorithm Visualization",vertex.label.cex = 0.35)
+```
+
+```{r}
+leading_eigen_result <- leading.eigenvector.community(graf)
+node_colors <- data.frame(name = V(graf)$name, community = membership(leading_eigen_result))
+plot(graf, vertex.color = node_colors$community, 
+     main = "Leading Eigenvalue Algorithm Visualization",vertex.label.cex = 0.35)
+```
+
+
+
