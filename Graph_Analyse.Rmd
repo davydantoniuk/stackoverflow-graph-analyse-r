@@ -2,7 +2,9 @@
 title: "Graph analysis using the library(igraph)"
 author: "Antoniuk"
 date: "2024-06-29"
-output: rmarkdown::github_document
+output: 
+  html_document:
+    keep_md: true
 ---
 
 ```{r setup, include=FALSE}
